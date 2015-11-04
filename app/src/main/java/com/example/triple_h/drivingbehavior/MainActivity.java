@@ -1,6 +1,10 @@
 package com.example.triple_h.drivingbehavior;
 
 import android.content.Context;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.LocationManager;
 import android.os.Handler;
 import android.os.PowerManager;
@@ -33,13 +37,22 @@ public class MainActivity extends AppCompatActivity {
     double CurLatitude;
     //Lontitude经度
     double CurLontitude;
+    //方向
+    float orientation;
     //速度
     float speed;
     //方向
     float driection;
     PowerManager powerManager = null;
     PowerManager.WakeLock wakeLock = null;
-
+    //方向传感器
+    private SensorManager sm;
+    //需要一个Sensor
+    private Sensor OSensor;
+    //需要一个数组
+    float[] orientationFieldValues = new float[3];
+    private float lastZ;
+    private static final String TAG = "orientationsensor";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -69,7 +82,7 @@ public class MainActivity extends AppCompatActivity {
         //打开网页
         try {
             //打开页面地址
-            webview.loadUrl("http://192.168.1.194:8080/DrivingBehavior/");
+            webview.loadUrl("http://10.253.173.41:8080/DrivingBehavior/");
         } catch (Exception ex) {
             ex.printStackTrace();
         }
@@ -84,6 +97,12 @@ public class MainActivity extends AppCompatActivity {
         powerManager = (PowerManager)this.getSystemService(this.POWER_SERVICE);
         wakeLock = this.powerManager.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK, "My Lock");
 
+        sm = (SensorManager)getSystemService(Context.SENSOR_SERVICE);
+        OSensor = sm.getDefaultSensor(Sensor.TYPE_ORIENTATION);
+        sm.registerListener(SensormyListener, OSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        //更新显示数据的方法
+        calculateOrientation();
+
         handler.postDelayed(runnable, TIME); //每隔1s执行
     }
     Runnable runnable = new Runnable()
@@ -94,8 +113,9 @@ public class MainActivity extends AppCompatActivity {
             try
             {
                 //handler.postDelayed(this, TIME);
-                webview.loadUrl("javascript:theLocation(" + CurLontitude + "," + CurLatitude + ")");
                 webview.loadUrl("javascript:SetSpeedAndDirection(" + speed + "," + driection + ")");
+                webview.loadUrl("javascript:theLocation(" + CurLontitude + "," + CurLatitude + ","+orientation+")");
+
                 Log.i("BaiduLocation", "成功调用"+CurLatitude+",  "+CurLontitude);
             }
             catch (Exception e)
@@ -109,7 +129,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onKeyDown(int keyCoder, KeyEvent event) {
         if ((keyCoder == KeyEvent.KEYCODE_BACK) && webview.canGoBack()) {
-            if(webview.getUrl().startsWith("http://192.168.1.194:8080/DrivingBehavior/demo/hello"))
+            if(webview.getUrl().startsWith("http://10.253.173.41:8080/DrivingBehavior/demo/hello"))
             {
                 System.exit(0);
             }
@@ -224,6 +244,32 @@ public class MainActivity extends AppCompatActivity {
             Log.i("BaiduLocationApiDem", sb.toString());
         }
     }
+    final SensorEventListener SensormyListener = new SensorEventListener() {
+
+        public void onSensorChanged(SensorEvent sensorEvent) {
+
+            if (sensorEvent.sensor.getType() == Sensor.TYPE_ORIENTATION)
+                orientationFieldValues=sensorEvent.values;
+            calculateOrientation();
+
+        }
+
+        public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+
+    };
+    private  void calculateOrientation() {
+        float[] values = new float[3];
+        float x;
+        values=orientationFieldValues;
+        Log.i(TAG, values[0]+"");
+        x=values[0];
+        if( Math.abs(x- lastZ) > 5.0 )
+        {
+            orientation=x;
+        }
+        lastZ = x ;
+    }
+
     @Override
     protected void onResume()
     {
@@ -234,7 +280,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause()
     {
-         super.onPause();
+        super.onPause();
+        sm.unregisterListener(SensormyListener);
         wakeLock.release();
     }
 
