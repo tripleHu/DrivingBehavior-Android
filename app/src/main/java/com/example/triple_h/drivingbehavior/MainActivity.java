@@ -1,6 +1,7 @@
 package com.example.triple_h.drivingbehavior;
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -8,15 +9,19 @@ import android.hardware.SensorManager;
 import android.location.LocationManager;
 import android.os.Handler;
 import android.os.PowerManager;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.webkit.JsResult;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Toast;
+
 import com.baidu.location.BDLocation;
 import com.baidu.location.BDLocationListener;
 import com.baidu.location.LocationClient;
@@ -28,6 +33,7 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity {
     private WebView webview;
     private int TIME=1000;
+    public String BaseUrl="http://3040278.nat123.net:20306/DrivingBehavior";
     //声明Baidu定位
     public LocationClient mLocationClient = null;
     public BDLocationListener myListener = new MyLocationListener();
@@ -52,6 +58,7 @@ public class MainActivity extends AppCompatActivity {
     //需要一个数组
     float[] orientationFieldValues = new float[3];
     private float lastZ;
+    private long exitTime = 0;
     private static final String TAG = "orientationsensor";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,13 +83,29 @@ public class MainActivity extends AppCompatActivity {
                            Log.d("ANDROID_LAB", "TITLE=" + title);
                           MainActivity.this.setTitle(title);
                         }
+            @Override
+            public boolean onJsAlert(WebView view, String url,
+                                     String message, final JsResult result) {
+                //用Android组件替换
+                new AlertDialog.Builder(MainActivity.this)
+                        .setTitle("提示")
+                        .setMessage(message)
+                        .setPositiveButton(android.R.string.ok, new AlertDialog.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int which) {
+                                result.confirm();
+                            }
+                        })
+                        .setCancelable(false)
+                        .create().show();
+                return true;
+            }
         };
         //应用webview的设置
         webview.setWebChromeClient(wvcc);
         //打开网页
         try {
             //打开页面地址
-            webview.loadUrl("http://10.253.173.41:8080/DrivingBehavior/");
+            webview.loadUrl(BaseUrl);
         } catch (Exception ex) {
             ex.printStackTrace();
         }
@@ -92,6 +115,13 @@ public class MainActivity extends AppCompatActivity {
                 view.loadUrl(url);
                 return true;
             }
+
+            public void onPageFinished(WebView view, String url) {
+                if (url.startsWith(BaseUrl + "/demo/hello")) {
+
+                }
+
+            }
         });
         setContentView(webview);
         powerManager = (PowerManager)this.getSystemService(this.POWER_SERVICE);
@@ -99,12 +129,13 @@ public class MainActivity extends AppCompatActivity {
 
         sm = (SensorManager)getSystemService(Context.SENSOR_SERVICE);
         OSensor = sm.getDefaultSensor(Sensor.TYPE_ORIENTATION);
-        sm.registerListener(SensormyListener, OSensor, SensorManager.SENSOR_DELAY_NORMAL);
+
         //更新显示数据的方法
         calculateOrientation();
 
         handler.postDelayed(runnable, TIME); //每隔1s执行
     }
+
     Runnable runnable = new Runnable()
     {
         @Override
@@ -116,7 +147,7 @@ public class MainActivity extends AppCompatActivity {
                 webview.loadUrl("javascript:SetSpeedAndDirection(" + speed + "," + driection + ")");
                 webview.loadUrl("javascript:theLocation(" + CurLontitude + "," + CurLatitude + ","+orientation+")");
 
-                Log.i("BaiduLocation", "成功调用"+CurLatitude+",  "+CurLontitude);
+                Log.i("BaiduLocationCall", "成功调用"+CurLatitude+",  "+CurLontitude+" , "+orientation);
             }
             catch (Exception e)
             {
@@ -129,9 +160,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onKeyDown(int keyCoder, KeyEvent event) {
         if ((keyCoder == KeyEvent.KEYCODE_BACK) && webview.canGoBack()) {
-            if(webview.getUrl().startsWith("http://10.253.173.41:8080/DrivingBehavior/demo/hello"))
+            if(webview.getUrl().startsWith(BaseUrl + "/demo/hello")&&!webview.getUrl().contains("page_information_child")||webview.getUrl().equals(BaseUrl+"/"))
             {
-                System.exit(0);
+                exit();
             }
             else
             {
@@ -141,7 +172,19 @@ public class MainActivity extends AppCompatActivity {
         }
         return super.onKeyDown(keyCoder, event);
     }
-
+    public void exit() {
+        if ((System.currentTimeMillis() - exitTime) > 2000)
+        {
+            Toast.makeText(getApplicationContext(), "再按一次退出程序",
+                    Toast.LENGTH_SHORT).show();
+            exitTime = System.currentTimeMillis();
+        }
+        else
+        {
+            finish();
+            System.exit(0);
+        }
+    }
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -153,6 +196,9 @@ public class MainActivity extends AppCompatActivity {
         switch (item.getItemId()) {
             case R.id.action_refresh:
                 webview.reload();
+                return true;
+            case R.id.action_end:
+                    handler.removeCallbacks(runnable);
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -273,6 +319,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume()
     {
+        sm.registerListener(SensormyListener, OSensor, SensorManager.SENSOR_DELAY_NORMAL);
         super.onResume();
         wakeLock.acquire();
      }
