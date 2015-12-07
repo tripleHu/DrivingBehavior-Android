@@ -16,6 +16,8 @@ import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.Window;
+import android.view.WindowManager;
 import android.webkit.JsResult;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
@@ -33,7 +35,7 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity {
     private WebView webview;
     private int TIME=1000;
-    public String BaseUrl="http://3040278.nat123.net:20306/DrivingBehavior";
+    public String BaseUrl="http://115.28.243.122:8080/DrivingBehavior";//"http://3040278.nat123.net:20306/DrivingBehavior";
     //声明Baidu定位
     public LocationClient mLocationClient = null;
     public BDLocationListener myListener = new MyLocationListener();
@@ -46,9 +48,12 @@ public class MainActivity extends AppCompatActivity {
     //方向
     float orientation;
     //速度
-    float speed;
+    float LastSpeed;
+    float speed=0;
     //方向
     float driection;
+    //加速度
+    float acceleration;
     PowerManager powerManager = null;
     PowerManager.WakeLock wakeLock = null;
     //方向传感器
@@ -57,12 +62,12 @@ public class MainActivity extends AppCompatActivity {
     private Sensor OSensor;
     //需要一个数组
     float[] orientationFieldValues = new float[3];
-    private float lastZ;
     private long exitTime = 0;
     private static final String TAG = "orientationsensor";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         // setContentView(R.layout.activity_main);
         /*
         *创建Baidu定位
@@ -123,8 +128,11 @@ public class MainActivity extends AppCompatActivity {
 
             }
         });
+
         setContentView(webview);
-        powerManager = (PowerManager)this.getSystemService(this.POWER_SERVICE);
+
+
+        powerManager = (PowerManager) this.getSystemService(this.POWER_SERVICE);
         wakeLock = this.powerManager.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK, "My Lock");
 
         sm = (SensorManager)getSystemService(Context.SENSOR_SERVICE);
@@ -141,10 +149,11 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void run() {
             // handler自带方法实现定时器
+            acceleration=CalculateAcceleration(LastSpeed,speed);
             try
             {
                 //handler.postDelayed(this, TIME);
-                webview.loadUrl("javascript:SetSpeedAndDirection(" + speed + "," + driection + ")");
+                webview.loadUrl("javascript:SetSpeedAndDirection(" + speed + "," + driection + ","+acceleration+")");
                 webview.loadUrl("javascript:theLocation(" + CurLontitude + "," + CurLatitude + ","+orientation+")");
 
                 Log.i("BaiduLocationCall", "成功调用"+CurLatitude+",  "+CurLontitude+" , "+orientation);
@@ -157,6 +166,11 @@ public class MainActivity extends AppCompatActivity {
             handler.postDelayed(this, TIME);
         }
     };
+    float CalculateAcceleration(float LastSpeed,float speed)
+    {
+        float fAcceleration=(speed-LastSpeed)/TIME;
+        return fAcceleration;
+    }
     @Override
     public boolean onKeyDown(int keyCoder, KeyEvent event) {
         if ((keyCoder == KeyEvent.KEYCODE_BACK) && webview.canGoBack()) {
@@ -242,6 +256,7 @@ public class MainActivity extends AppCompatActivity {
             if (location.getLocType() == BDLocation.TypeGpsLocation) {// GPS定位结果
                 sb.append("\nspeed : ");
                 sb.append(location.getSpeed());// 单位：公里每小时
+                LastSpeed=speed;
                 speed=location.getSpeed();
                 sb.append("\nsatellite : ");
                 sb.append(location.getSatelliteNumber());
@@ -309,11 +324,10 @@ public class MainActivity extends AppCompatActivity {
         values=orientationFieldValues;
         Log.i(TAG, values[0]+"");
         x=values[0];
-        if( Math.abs(x- lastZ) > 5.0 )
-        {
+
             orientation=x;
-        }
-        lastZ = x ;
+
+
     }
 
     @Override
