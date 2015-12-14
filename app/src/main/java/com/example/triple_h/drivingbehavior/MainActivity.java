@@ -149,7 +149,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void run() {
             // handler自带方法实现定时器
-            acceleration=CalculateAcceleration(LastSpeed,speed);
+            acceleration=CalculateAcceleration(LastSpeed, speed);
             try
             {
                 //handler.postDelayed(this, TIME);
@@ -166,11 +166,7 @@ public class MainActivity extends AppCompatActivity {
             handler.postDelayed(this, TIME);
         }
     };
-    float CalculateAcceleration(float LastSpeed,float speed)
-    {
-        float fAcceleration=(speed-LastSpeed)/TIME;
-        return fAcceleration;
-    }
+
     @Override
     public boolean onKeyDown(int keyCoder, KeyEvent event) {
         if ((keyCoder == KeyEvent.KEYCODE_BACK) && webview.canGoBack()) {
@@ -258,6 +254,7 @@ public class MainActivity extends AppCompatActivity {
                 sb.append(location.getSpeed());// 单位：公里每小时
                 LastSpeed=speed;
                 speed=location.getSpeed();
+
                 sb.append("\nsatellite : ");
                 sb.append(location.getSatelliteNumber());
                 sb.append("\nheight : ");
@@ -304,6 +301,11 @@ public class MainActivity extends AppCompatActivity {
             }
             Log.i("BaiduLocationApiDem", sb.toString());
         }
+    }
+    float CalculateAcceleration(float LastSpeed,float speed)
+    {
+        float fAcceleration=(speed-LastSpeed)/(TIME/1000);
+        return fAcceleration;
     }
     final SensorEventListener SensormyListener = new SensorEventListener() {
 
